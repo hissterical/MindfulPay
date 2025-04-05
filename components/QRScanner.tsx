@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
-import { BarCodeScanner } from 'expo-barcode-scanner';
+import { RNCamera } from 'react-native-camera';
 import { launchUpiPayment } from '../utils/upiLauncher';
 import Toast from 'react-native-toast-message';
 import { checkVendorBlocklist } from '../utils/vendorCheck';
@@ -17,10 +17,9 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
+    // Camera permissions are handled by the RNCamera component
+    // We'll set permission to true and handle permission errors in the render method
+    setHasPermission(true);
   }, []);
 
   const parseUpiQrData = (data: string) => {
@@ -152,10 +151,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
     }
   };
 
+  // Camera permission handling is now done by RNCamera component
+  // We'll show a simple loading state while waiting for camera
   if (hasPermission === null) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>Requesting camera permission...</Text>
+        <Text style={styles.text}>Initializing camera...</Text>
       </View>
     );
   }
@@ -163,7 +164,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
   if (hasPermission === false) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>No access to camera</Text>
+        <Text style={styles.text}>Camera permission denied</Text>
         <TouchableOpacity style={styles.button} onPress={onClose}>
           <Text style={styles.buttonText}>Go Back</Text>
         </TouchableOpacity>
@@ -173,9 +174,18 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
 
   return (
     <View style={styles.container}>
-      <BarCodeScanner
-        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+      <RNCamera
         style={StyleSheet.absoluteFillObject}
+        type={RNCamera.Constants.Type.back}
+        captureAudio={false}
+        androidCameraPermissionOptions={{
+          title: 'Permission to use camera',
+          message: 'We need your permission to use your camera to scan QR codes',
+          buttonPositive: 'OK',
+          buttonNegative: 'Cancel',
+        }}
+        onBarCodeRead={scanned ? undefined : handleBarCodeScanned}
+        barCodeTypes={[RNCamera.Constants.BarCodeType.qr]}
       />
       
       {scanned && !isLoading && (
