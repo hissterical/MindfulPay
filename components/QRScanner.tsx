@@ -8,9 +8,10 @@ import { checkSpendingLimit } from '../utils/spendingLimit';
 
 interface QRScannerProps {
   onClose: () => void;
+  onScanSuccess?: (upiId: string) => void;
 }
 
-const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
+const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +62,17 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose }) => {
         text1: 'Invalid QR Code',
         text2: 'Could not parse UPI QR code data',
       });
+      return;
+    }
+    
+    // If onScanSuccess is provided and we just want to extract the UPI ID
+    if (onScanSuccess) {
+      Toast.show({
+        type: 'success',
+        text1: 'QR Code Scanned',
+        text2: `UPI ID: ${upiData.upiId} detected`,
+      });
+      onScanSuccess(upiData.upiId);
       return;
     }
     

@@ -1,15 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { checkVendorBlocklist } from '../utils/vendorCheck';
 import { checkSpendingLimit } from '../utils/spendingLimit';
 import { launchUpiPayment } from '../utils/upiLauncher';
 import Toast from 'react-native-toast-message';
 
-const PaymentForm: React.FC = () => {
+interface PaymentFormProps {
+  upiId?: string;
+}
+
+const PaymentForm: React.FC<PaymentFormProps> = ({ upiId: scannedUpiId }) => {
   const [upiId, setUpiId] = useState('');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Update UPI ID when scanned value is received
+  useEffect(() => {
+    if (scannedUpiId) {
+      setUpiId(scannedUpiId);
+    }
+  }, [scannedUpiId]);
 
   const handlePayment = async () => {
     // Validate inputs

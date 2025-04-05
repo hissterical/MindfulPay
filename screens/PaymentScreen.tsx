@@ -1,26 +1,33 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import PaymentForm from '../components/PaymentForm';
-//import QRScanner from '../components/QRScanner';
+import QRScanner from '../components/QRScanner';
 import { Ionicons } from '@expo/vector-icons';
 
 const PaymentScreen: React.FC = () => {
-//   const [showScanner, setShowScanner] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedUpiId, setScannedUpiId] = useState('');
 
-//   if (showScanner) {
-//     return <QRScanner onClose={() => setShowScanner(false)} />;
-//   }
+  if (showScanner) {
+    return <QRScanner 
+      onClose={() => setShowScanner(false)} 
+      onScanSuccess={(upiId) => {
+        setScannedUpiId(upiId);
+        setShowScanner(false);
+      }} 
+    />;
+  }
 
   return (
     <View style={styles.container}>
-      <PaymentForm />
-      {/* <TouchableOpacity 
+      <PaymentForm upiId={scannedUpiId} />
+      <TouchableOpacity 
         style={styles.scanButton} 
         onPress={() => setShowScanner(true)}
       >
         <Ionicons name="qr-code-outline" size={24} color="white" />
         <Text style={styles.scanButtonText}>Scan QR Code</Text>
-      </TouchableOpacity> */}
+      </TouchableOpacity>
     </View>
   );
 };
