@@ -1,12 +1,12 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, SafeAreaView, View } from 'react-native';
 import Toast from 'react-native-toast-message';
-import PaymentForm from './components/PaymentForm';
+import AppNavigator from './navigation/AppNavigator';
 
 export default function App() {
   return (
     <SafeAreaView style={styles.container}>
-      <PaymentForm />
+      <AppNavigator />
       <StatusBar style="auto" />
       <Toast />
     </SafeAreaView>
