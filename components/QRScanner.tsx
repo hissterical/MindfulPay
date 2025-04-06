@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,10 +6,9 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
-  PermissionsAndroid,
   Modal,
 } from "react-native";
-import { RNCamera } from "react-native-camera";
+import { BarCodeScanner } from "expo-barcode-scanner";
 import { launchUpiPayment } from "../utils/upiLauncher";
 import Toast from "react-native-toast-message";
 import { checkVendorBlocklist } from "../utils/vendorCheck";
@@ -81,7 +80,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
     "blacklist"
   );
   const [currentUpiData, setCurrentUpiData] = useState<any>(null);
-  const cameraRef = useRef<RNCamera>(null);
 
   useEffect(() => {
     checkCameraPermission();
@@ -89,21 +87,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
 
   const checkCameraPermission = async () => {
     try {
-      if (Platform.OS === "android") {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: "Camera Permission",
-            message: "App needs camera permission to scan QR codes",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK",
-          }
-        );
-        setHasPermission(granted === PermissionsAndroid.RESULTS.GRANTED);
-      } else {
-        setHasPermission(true);
-      }
+      const { status } = await BarCodeScanner.requestPermissionsAsync();
+      setHasPermission(status === 'granted');
     } catch (error) {
       console.error("Camera permission error:", error);
       setCameraError("Failed to initialize camera");
@@ -195,13 +180,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
     }
   };
 
-  const handleBarCodeScanned = async ({
-    type,
-    data,
-  }: {
-    type: string;
-    data: string;
-  }) => {
+  const handleBarCodeScanned = async (scanResult: { type: string; data: string }) => {
+    const { type, data } = scanResult;
     setScanned(true);
 
     // Check if it's a UPI QR code
@@ -338,24 +318,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
 
   return (
     <View style={styles.container}>
-      <RNCamera
-        ref={cameraRef}
+      <BarCodeScanner
         style={StyleSheet.absoluteFillObject}
-        type={RNCamera.Constants.Type.back}
-        captureAudio={false}
-        androidCameraPermissionOptions={{
-          title: "Permission to use camera",
-          message:
-            "We need your permission to use your camera to scan QR codes",
-          buttonPositive: "OK",
-          buttonNegative: "Cancel",
-        }}
-        onBarCodeRead={scanned ? undefined : handleBarCodeScanned}
-        barCodeTypes={[RNCamera.Constants.BarCodeType.qr]}
-        onMountError={(error) => {
-          console.error("Camera mount error:", error);
-          setCameraError("Failed to initialize camera");
-        }}
+        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+        barCodeTypes={[BarCodeScanner.Constants.BarCodeType.qr]}
       />
 
       {scanned && !isLoading && (
