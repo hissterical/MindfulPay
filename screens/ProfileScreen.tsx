@@ -9,9 +9,12 @@ import {
   Modal,
   TextInput,
   Alert,
+  ActivityIndicator,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFinancial } from "../context/FinancialContext";
+import { useAuth } from "../context/AuthContext";
 import { addToBlocklist, removeFromBlocklist } from "../utils/vendorCheck";
 
 const ProfileScreen: React.FC = () => {
@@ -21,6 +24,9 @@ const ProfileScreen: React.FC = () => {
     removeBlockedMerchant,
     clearAllData,
   } = useFinancial();
+  
+  // Get auth context
+  const { user, isLoading, signInWithGoogle, signOut } = useAuth();
 
   // State for settings
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -137,15 +143,73 @@ const ProfileScreen: React.FC = () => {
     </Modal>
   );
 
+  // Handle sign in with Google
+  const handleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error('Error signing in:', error);
+      Alert.alert('Error', 'Failed to sign in with Google');
+    }
+  };
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      Alert.alert('Success', 'You have been signed out');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      Alert.alert('Error', 'Failed to sign out');
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       {/* Profile Header */}
       <View style={styles.profileHeader}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>MP</Text>
-        </View>
-        <Text style={styles.userName}>MindfulPay User</Text>
-        <Text style={styles.userEmail}>user@example.com</Text>
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#fff" />
+        ) : user ? (
+          // Logged in state
+          <>
+            {user.photoUrl ? (
+              <Image 
+                source={{ uri: user.photoUrl }} 
+                style={styles.avatarImage} 
+              />
+            ) : (
+              <View style={styles.avatarContainer}>
+                <Text style={styles.avatarText}>
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.userName}>{user.name}</Text>
+            <Text style={styles.userEmail}>{user.email}</Text>
+            <TouchableOpacity 
+              style={styles.signOutButton}
+              onPress={handleSignOut}
+            >
+              <Text style={styles.signOutButtonText}>Sign Out</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          // Logged out state
+          <>
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarText}>MP</Text>
+            </View>
+            <Text style={styles.userName}>MindfulPay User</Text>
+            <Text style={styles.userEmail}>Sign in to sync your data</Text>
+            <TouchableOpacity 
+              style={styles.signInButton}
+              onPress={handleSignIn}
+            >
+              <Text style={styles.signInButtonText}>Sign in with Google</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       {/* Settings Sections */}
@@ -392,6 +456,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 15,
   },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 15,
+  },
   avatarText: {
     fontSize: 28,
     fontWeight: "bold",
@@ -406,6 +476,29 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: "rgba(255, 255, 255, 0.8)",
+    marginBottom: 15,
+  },
+  signInButton: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 10,
+  },
+  signInButtonText: {
+    color: "#2E7D32",
+    fontWeight: "bold",
+  },
+  signOutButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 5,
+  },
+  signOutButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
   settingsContainer: {
     padding: 15,
