@@ -6,6 +6,7 @@ import {
   Text,
   Modal,
   Alert,
+  TextInput,
 } from "react-native";
 import PaymentForm from "../components/PaymentForm";
 import QRScanner from "../components/QRScanner";
@@ -14,8 +15,11 @@ import { checkVendorBlocklist } from "../utils/vendorCheck";
 import { checkSpendingLimit } from "../utils/spendingLimit";
 import { launchUpiPayment } from "../utils/upiLauncher";
 import Toast from "react-native-toast-message";
+import { useFinancial } from "../context/FinancialContext";
+import { EXPENSE_CATEGORIES } from "../utils/categories";
 
 const PaymentScreen: React.FC = () => {
+  const { addTransaction, spendingLimits, categoryTotals } = useFinancial();
   const [showScanner, setShowScanner] = useState(false);
   const [scannedUpiId, setScannedUpiId] = useState("");
   const [blockedModalVisible, setBlockedModalVisible] = useState(false);
@@ -24,6 +28,9 @@ const PaymentScreen: React.FC = () => {
     "blacklist"
   );
   const [currentPaymentData, setCurrentPaymentData] = useState<any>(null);
+  const [upiId, setUpiId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
 
   useEffect(() => {
     // Initialize blocklist when component mounts
@@ -47,46 +54,30 @@ const PaymentScreen: React.FC = () => {
 
   const handleEmergencyOverride = async () => {
     setBlockedModalVisible(false);
+    const paymentAmount = parseFloat(amount);
 
     try {
-      // Confirm emergency override
-      Alert.alert(
-        "Emergency Override",
-        "Are you sure you want to proceed with this payment? This will bypass your spending controls.",
-        [
-          {
-            text: "Cancel",
-            style: "cancel",
-          },
-          {
-            text: "Proceed",
-            onPress: async () => {
-              if (currentPaymentData) {
-                const success = await launchUpiPayment(
-                  currentPaymentData.upiId,
-                  currentPaymentData.amount,
-                  "Emergency override payment"
-                );
-
-                if (success) {
-                  Toast.show({
-                    type: "success",
-                    text1: "Payment Initiated",
-                    text2: "UPI payment app launched successfully",
-                  });
-                }
-              }
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      Toast.show({
-        type: "error",
-        text1: "Payment Failed",
-        text2: "Could not process payment",
+      await addTransaction({
+        amount: paymentAmount,
+        type: "expense",
+        category,
+        description: `EMERGENCY: UPI Payment to ${upiId}`,
+        date: new Date().toISOString(),
+        merchant: upiId,
       });
-      console.error("Emergency payment error:", error);
+
+      // Clear the form
+      setUpiId("");
+      setAmount("");
+      setCategory(EXPENSE_CATEGORIES[0]);
+
+      Alert.alert("Success", "Emergency payment processed successfully!");
+    } catch (error) {
+      console.error("Error processing emergency payment:", error);
+      Alert.alert(
+        "Error",
+        "Failed to process emergency payment. Please try again."
+      );
     }
   };
 
@@ -147,6 +138,58 @@ const PaymentScreen: React.FC = () => {
     } catch (error) {
       console.error("Error checking payment conditions:", error);
       return false;
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!upiId || !amount) {
+      Alert.alert("Error", "Please enter both UPI ID and amount");
+      return;
+    }
+
+    const paymentAmount = parseFloat(amount);
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+      Alert.alert("Error", "Please enter a valid amount");
+      return;
+    }
+
+    // Check if the payment would exceed the category limit
+    const categoryLimit = spendingLimits.find(
+      (limit) => limit.category === category && limit.period === "monthly"
+    );
+
+    if (categoryLimit) {
+      const currentSpent = categoryTotals[category] || 0;
+      if (currentSpent + paymentAmount > categoryLimit.amount) {
+        setBlockedMessage(
+          `This payment would exceed your monthly limit of ₹${categoryLimit.amount} for ${category}`
+        );
+        setBlockedReason("limit");
+        setBlockedModalVisible(true);
+        return;
+      }
+    }
+
+    try {
+      // Add the transaction
+      await addTransaction({
+        amount: paymentAmount,
+        type: "expense",
+        category,
+        description: `UPI Payment to ${upiId}`,
+        date: new Date().toISOString(),
+        merchant: upiId,
+      });
+
+      // Clear the form
+      setUpiId("");
+      setAmount("");
+      setCategory(EXPENSE_CATEGORIES[0]);
+
+      Alert.alert("Success", "Payment processed successfully!");
+    } catch (error) {
+      console.error("Error processing payment:", error);
+      Alert.alert("Error", "Failed to process payment. Please try again.");
     }
   };
 

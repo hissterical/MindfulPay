@@ -1,33 +1,34 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
   TextInput,
   Modal,
-  Alert
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useFinancial } from '../context/FinancialContext';
-import { GOAL_CATEGORIES, EXPENSE_CATEGORIES } from '../utils/categories';
+  Alert,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useFinancial } from "../context/FinancialContext";
+import { GOAL_CATEGORIES, EXPENSE_CATEGORIES } from "../utils/categories";
 
 const GoalsLimitsScreen: React.FC = () => {
   // Get data from financial context
-  const { 
-    goals, 
-    spendingLimits, 
-    addGoal, 
-    updateGoal, 
+  const {
+    goals,
+    spendingLimits,
+    addGoal,
+    updateGoal,
     deleteGoal,
     addSpendingLimit,
     updateSpendingLimit,
-    deleteSpendingLimit
+    deleteSpendingLimit,
+    categoryTotals,
   } = useFinancial();
 
   // State for active tab
-  const [activeTab, setActiveTab] = useState<'goals' | 'limits'>('goals');
+  const [activeTab, setActiveTab] = useState<"goals" | "limits">("goals");
 
   // State for modals
   const [goalModalVisible, setGoalModalVisible] = useState(false);
@@ -35,24 +36,24 @@ const GoalsLimitsScreen: React.FC = () => {
 
   // State for new goal form
   const [newGoal, setNewGoal] = useState({
-    name: '',
-    targetAmount: '',
-    currentAmount: '',
+    name: "",
+    targetAmount: "",
+    currentAmount: "",
     category: GOAL_CATEGORIES[0],
-    deadline: ''
+    deadline: "",
   });
 
   // State for new spending limit form
   const [newLimit, setNewLimit] = useState({
     category: EXPENSE_CATEGORIES[0],
-    amount: '',
-    period: 'monthly' as 'daily' | 'weekly' | 'monthly'
+    amount: "",
+    period: "monthly" as "daily" | "weekly" | "monthly",
   });
 
   // Handle adding a new goal
   const handleAddGoal = async () => {
     if (!newGoal.name || !newGoal.targetAmount) {
-      Alert.alert('Error', 'Please fill in all required fields');
+      Alert.alert("Error", "Please fill in all required fields");
       return;
     }
 
@@ -62,27 +63,27 @@ const GoalsLimitsScreen: React.FC = () => {
         targetAmount: Number(newGoal.targetAmount),
         currentAmount: Number(newGoal.currentAmount) || 0,
         category: newGoal.category,
-        deadline: newGoal.deadline || undefined
+        deadline: newGoal.deadline || undefined,
       });
 
       // Reset form and close modal
       setNewGoal({
-        name: '',
-        targetAmount: '',
-        currentAmount: '',
+        name: "",
+        targetAmount: "",
+        currentAmount: "",
         category: GOAL_CATEGORIES[0],
-        deadline: ''
+        deadline: "",
       });
       setGoalModalVisible(false);
     } catch (error) {
-      Alert.alert('Error', 'Failed to add goal');
+      Alert.alert("Error", "Failed to add goal");
     }
   };
 
   // Handle adding a new spending limit
   const handleAddLimit = async () => {
     if (!newLimit.amount) {
-      Alert.alert('Error', 'Please enter a limit amount');
+      Alert.alert("Error", "Please enter a limit amount");
       return;
     }
 
@@ -90,49 +91,45 @@ const GoalsLimitsScreen: React.FC = () => {
       await addSpendingLimit({
         category: newLimit.category,
         amount: Number(newLimit.amount),
-        period: newLimit.period
+        period: newLimit.period,
       });
 
       // Reset form and close modal
       setNewLimit({
         category: EXPENSE_CATEGORIES[0],
-        amount: '',
-        period: 'monthly'
+        amount: "",
+        period: "monthly",
       });
       setLimitModalVisible(false);
     } catch (error) {
-      Alert.alert('Error', 'Failed to add spending limit');
+      Alert.alert("Error", "Failed to add spending limit");
     }
   };
 
   // Handle deleting a goal
   const handleDeleteGoal = (id: string) => {
-    Alert.alert(
-      'Delete Goal',
-      'Are you sure you want to delete this goal?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: () => deleteGoal(id)
-        }
-      ]
-    );
+    Alert.alert("Delete Goal", "Are you sure you want to delete this goal?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => deleteGoal(id),
+      },
+    ]);
   };
 
   // Handle deleting a spending limit
   const handleDeleteLimit = (id: string) => {
     Alert.alert(
-      'Delete Limit',
-      'Are you sure you want to delete this spending limit?',
+      "Delete Limit",
+      "Are you sure you want to delete this spending limit?",
       [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: () => deleteSpendingLimit(id)
-        }
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteSpendingLimit(id),
+        },
       ]
     );
   };
@@ -148,47 +145,50 @@ const GoalsLimitsScreen: React.FC = () => {
             <Ionicons name="trash-outline" size={20} color="#F44336" />
           </TouchableOpacity>
         </View>
-        
+
         <Text style={styles.itemCategory}>{goal.category}</Text>
-        
+
         <View style={styles.progressContainer}>
           <View style={styles.progressInfo}>
             <Text style={styles.progressText}>
-              ₹{goal.currentAmount.toLocaleString()} of ₹{goal.targetAmount.toLocaleString()}
+              ₹{goal.currentAmount.toLocaleString()} of ₹
+              {goal.targetAmount.toLocaleString()}
             </Text>
             <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
           </View>
-          
+
           <View style={styles.progressBarContainer}>
             <View style={[styles.progressBar, { width: `${progress}%` }]} />
           </View>
         </View>
-        
+
         {goal.deadline && (
           <Text style={styles.deadlineText}>Deadline: {goal.deadline}</Text>
         )}
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.contributeButton}
           onPress={() => {
             Alert.prompt(
-              'Contribute to Goal',
-              'Enter amount to add:',
-              [{
-                text: 'Cancel',
-                style: 'cancel'
-              },
-              {
-                text: 'Add',
-                onPress: (amount) => {
-                  if (amount && !isNaN(Number(amount))) {
-                    updateGoal(goal.id, Number(amount));
-                  }
-                }
-              }],
-              'plain-text',
-              '',
-              'numeric'
+              "Contribute to Goal",
+              "Enter amount to add:",
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel",
+                },
+                {
+                  text: "Add",
+                  onPress: (amount) => {
+                    if (amount && !isNaN(Number(amount))) {
+                      updateGoal(goal.id, Number(amount));
+                    }
+                  },
+                },
+              ],
+              "plain-text",
+              "",
+              "numeric"
             );
           }}
         >
@@ -200,6 +200,9 @@ const GoalsLimitsScreen: React.FC = () => {
 
   // Render spending limit item
   const renderLimitItem = (limit: any) => {
+    const currentSpent = categoryTotals[limit.category] || 0;
+    const progress = (currentSpent / limit.amount) * 100;
+
     return (
       <View key={limit.id} style={styles.itemCard}>
         <View style={styles.itemHeader}>
@@ -208,13 +211,15 @@ const GoalsLimitsScreen: React.FC = () => {
             <Ionicons name="trash-outline" size={20} color="#F44336" />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.limitDetails}>
           <View style={styles.limitAmount}>
             <Text style={styles.limitLabel}>Limit:</Text>
-            <Text style={styles.limitValue}>₹{limit.amount.toLocaleString()}</Text>
+            <Text style={styles.limitValue}>
+              ₹{limit.amount.toLocaleString()}
+            </Text>
           </View>
-          
+
           <View style={styles.limitPeriod}>
             <Text style={styles.limitLabel}>Period:</Text>
             <Text style={styles.limitValue}>
@@ -222,28 +227,49 @@ const GoalsLimitsScreen: React.FC = () => {
             </Text>
           </View>
         </View>
-        
-        <TouchableOpacity 
+
+        <View style={styles.progressContainer}>
+          <View style={styles.progressInfo}>
+            <Text style={styles.progressText}>
+              ₹{currentSpent.toLocaleString()} of ₹
+              {limit.amount.toLocaleString()}
+            </Text>
+            <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
+          </View>
+
+          <View style={styles.progressBarContainer}>
+            <View
+              style={[
+                styles.progressBar,
+                { width: `${Math.min(progress, 100)}%` },
+              ]}
+            />
+          </View>
+        </View>
+
+        <TouchableOpacity
           style={styles.editButton}
           onPress={() => {
             Alert.prompt(
-              'Update Limit',
-              'Enter new limit amount:',
-              [{
-                text: 'Cancel',
-                style: 'cancel'
-              },
-              {
-                text: 'Update',
-                onPress: (amount) => {
-                  if (amount && !isNaN(Number(amount))) {
-                    updateSpendingLimit(limit.id, Number(amount));
-                  }
-                }
-              }],
-              'plain-text',
+              "Update Limit",
+              "Enter new limit amount:",
+              [
+                {
+                  text: "Cancel",
+                  style: "cancel",
+                },
+                {
+                  text: "Update",
+                  onPress: (amount) => {
+                    if (amount && !isNaN(Number(amount))) {
+                      updateSpendingLimit(limit.id, Number(amount));
+                    }
+                  },
+                },
+              ],
+              "plain-text",
               limit.amount.toString(),
-              'numeric'
+              "numeric"
             );
           }}
         >
@@ -255,11 +281,7 @@ const GoalsLimitsScreen: React.FC = () => {
 
   // Render goal form modal
   const renderGoalModal = () => (
-    <Modal
-      visible={goalModalVisible}
-      animationType="slide"
-      transparent={true}
-    >
+    <Modal visible={goalModalVisible} animationType="slide" transparent={true}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
@@ -268,34 +290,38 @@ const GoalsLimitsScreen: React.FC = () => {
               <Ionicons name="close" size={24} color="#333" />
             </TouchableOpacity>
           </View>
-          
+
           <ScrollView style={styles.modalForm}>
             <Text style={styles.inputLabel}>Goal Name *</Text>
             <TextInput
               style={styles.textInput}
               value={newGoal.name}
-              onChangeText={(text) => setNewGoal({...newGoal, name: text})}
+              onChangeText={(text) => setNewGoal({ ...newGoal, name: text })}
               placeholder="e.g., New Laptop"
             />
-            
+
             <Text style={styles.inputLabel}>Target Amount (₹) *</Text>
             <TextInput
               style={styles.textInput}
               value={newGoal.targetAmount}
-              onChangeText={(text) => setNewGoal({...newGoal, targetAmount: text})}
+              onChangeText={(text) =>
+                setNewGoal({ ...newGoal, targetAmount: text })
+              }
               placeholder="e.g., 50000"
               keyboardType="numeric"
             />
-            
+
             <Text style={styles.inputLabel}>Current Amount (₹)</Text>
             <TextInput
               style={styles.textInput}
               value={newGoal.currentAmount}
-              onChangeText={(text) => setNewGoal({...newGoal, currentAmount: text})}
+              onChangeText={(text) =>
+                setNewGoal({ ...newGoal, currentAmount: text })
+              }
               placeholder="e.g., 10000"
               keyboardType="numeric"
             />
-            
+
             <Text style={styles.inputLabel}>Category</Text>
             <View style={styles.categoryContainer}>
               {GOAL_CATEGORIES.map((category) => (
@@ -303,29 +329,35 @@ const GoalsLimitsScreen: React.FC = () => {
                   key={category}
                   style={[
                     styles.categoryButton,
-                    newGoal.category === category && styles.activeCategoryButton
+                    newGoal.category === category &&
+                      styles.activeCategoryButton,
                   ]}
-                  onPress={() => setNewGoal({...newGoal, category})}
+                  onPress={() => setNewGoal({ ...newGoal, category })}
                 >
-                  <Text style={[
-                    styles.categoryButtonText,
-                    newGoal.category === category && styles.activeCategoryText
-                  ]}>
+                  <Text
+                    style={[
+                      styles.categoryButtonText,
+                      newGoal.category === category &&
+                        styles.activeCategoryText,
+                    ]}
+                  >
                     {category}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-            
+
             <Text style={styles.inputLabel}>Deadline (YYYY-MM-DD)</Text>
             <TextInput
               style={styles.textInput}
               value={newGoal.deadline}
-              onChangeText={(text) => setNewGoal({...newGoal, deadline: text})}
+              onChangeText={(text) =>
+                setNewGoal({ ...newGoal, deadline: text })
+              }
               placeholder="e.g., 2023-12-31"
             />
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.submitButton}
               onPress={handleAddGoal}
             >
@@ -339,11 +371,7 @@ const GoalsLimitsScreen: React.FC = () => {
 
   // Render spending limit form modal
   const renderLimitModal = () => (
-    <Modal
-      visible={limitModalVisible}
-      animationType="slide"
-      transparent={true}
-    >
+    <Modal visible={limitModalVisible} animationType="slide" transparent={true}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
@@ -352,7 +380,7 @@ const GoalsLimitsScreen: React.FC = () => {
               <Ionicons name="close" size={24} color="#333" />
             </TouchableOpacity>
           </View>
-          
+
           <ScrollView style={styles.modalForm}>
             <Text style={styles.inputLabel}>Category</Text>
             <View style={styles.categoryContainer}>
@@ -361,54 +389,64 @@ const GoalsLimitsScreen: React.FC = () => {
                   key={category}
                   style={[
                     styles.categoryButton,
-                    newLimit.category === category && styles.activeCategoryButton
+                    newLimit.category === category &&
+                      styles.activeCategoryButton,
                   ]}
-                  onPress={() => setNewLimit({...newLimit, category})}
+                  onPress={() => setNewLimit({ ...newLimit, category })}
                 >
-                  <Text style={[
-                    styles.categoryButtonText,
-                    newLimit.category === category && styles.activeCategoryText
-                  ]}>
+                  <Text
+                    style={[
+                      styles.categoryButtonText,
+                      newLimit.category === category &&
+                        styles.activeCategoryText,
+                    ]}
+                  >
                     {category}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-            
+
             <Text style={styles.inputLabel}>Limit Amount (₹) *</Text>
             <TextInput
               style={styles.textInput}
               value={newLimit.amount}
-              onChangeText={(text) => setNewLimit({...newLimit, amount: text})}
+              onChangeText={(text) =>
+                setNewLimit({ ...newLimit, amount: text })
+              }
               placeholder="e.g., 5000"
               keyboardType="numeric"
             />
-            
+
             <Text style={styles.inputLabel}>Period</Text>
             <View style={styles.periodContainer}>
-              {['daily', 'weekly', 'monthly'].map((period) => (
+              {["daily", "weekly", "monthly"].map((period) => (
                 <TouchableOpacity
                   key={period}
                   style={[
                     styles.periodButton,
-                    newLimit.period === period && styles.activePeriodButton
+                    newLimit.period === period && styles.activePeriodButton,
                   ]}
-                  onPress={() => setNewLimit({
-                    ...newLimit, 
-                    period: period as 'daily' | 'weekly' | 'monthly'
-                  })}
+                  onPress={() =>
+                    setNewLimit({
+                      ...newLimit,
+                      period: period as "daily" | "weekly" | "monthly",
+                    })
+                  }
                 >
-                  <Text style={[
-                    styles.periodButtonText,
-                    newLimit.period === period && styles.activePeriodText
-                  ]}>
+                  <Text
+                    style={[
+                      styles.periodButtonText,
+                      newLimit.period === period && styles.activePeriodText,
+                    ]}
+                  >
                     {period.charAt(0).toUpperCase() + period.slice(1)}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.submitButton}
               onPress={handleAddLimit}
             >
@@ -425,32 +463,42 @@ const GoalsLimitsScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Goals & Limits</Text>
-        
+
         {/* Tab Selector */}
         <View style={styles.tabContainer}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'goals' && styles.activeTab]}
-            onPress={() => setActiveTab('goals')}
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "goals" && styles.activeTab]}
+            onPress={() => setActiveTab("goals")}
           >
-            <Text style={[styles.tabText, activeTab === 'goals' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "goals" && styles.activeTabText,
+              ]}
+            >
               Goals
             </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'limits' && styles.activeTab]}
-            onPress={() => setActiveTab('limits')}
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === "limits" && styles.activeTab]}
+            onPress={() => setActiveTab("limits")}
           >
-            <Text style={[styles.tabText, activeTab === 'limits' && styles.activeTabText]}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "limits" && styles.activeTabText,
+              ]}
+            >
               Spending Limits
             </Text>
           </TouchableOpacity>
         </View>
       </View>
-      
+
       {/* Content */}
       <ScrollView style={styles.content}>
-        {activeTab === 'goals' ? (
+        {activeTab === "goals" ? (
           <>
             {goals.length > 0 ? (
               goals.map(renderGoalItem)
@@ -480,12 +528,12 @@ const GoalsLimitsScreen: React.FC = () => {
           </>
         )}
       </ScrollView>
-      
+
       {/* Add Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.addButton}
         onPress={() => {
-          if (activeTab === 'goals') {
+          if (activeTab === "goals") {
             setGoalModalVisible(true);
           } else {
             setLimitModalVisible(true);
@@ -494,7 +542,7 @@ const GoalsLimitsScreen: React.FC = () => {
       >
         <Ionicons name="add" size={24} color="#fff" />
       </TouchableOpacity>
-      
+
       {/* Modals */}
       {renderGoalModal()}
       {renderLimitModal()}
@@ -505,36 +553,36 @@ const GoalsLimitsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2E7D32',
+    fontWeight: "bold",
+    color: "#2E7D32",
     marginBottom: 15,
   },
   tabContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     padding: 4,
   },
   tab: {
     flex: 1,
     paddingVertical: 8,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 6,
   },
   activeTab: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
+    backgroundColor: "#fff",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1,
@@ -542,89 +590,89 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
+    fontWeight: "500",
+    color: "#666",
   },
   activeTabText: {
-    color: '#2E7D32',
+    color: "#2E7D32",
   },
   content: {
     flex: 1,
     padding: 15,
   },
   itemCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
   itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   itemTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   itemCategory: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 12,
   },
   progressContainer: {
     marginBottom: 12,
   },
   progressInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 6,
   },
   progressText: {
     fontSize: 14,
-    color: '#555',
+    color: "#555",
   },
   progressPercent: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#2E7D32',
+    fontWeight: "bold",
+    color: "#2E7D32",
   },
   progressBarContainer: {
     height: 8,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: "#E0E0E0",
     borderRadius: 4,
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#2E7D32',
+    backgroundColor: "#2E7D32",
     borderRadius: 4,
   },
   deadlineText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 12,
   },
   contributeButton: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: "#E8F5E9",
     borderRadius: 8,
     paddingVertical: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   contributeButtonText: {
-    color: '#2E7D32',
-    fontWeight: '500',
+    color: "#2E7D32",
+    fontWeight: "500",
     fontSize: 14,
   },
   limitDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 15,
   },
   limitAmount: {
@@ -632,110 +680,110 @@ const styles = StyleSheet.create({
   },
   limitPeriod: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   limitLabel: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 4,
   },
   limitValue: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: "500",
+    color: "#333",
   },
   editButton: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: "#E8F5E9",
     borderRadius: 8,
     paddingVertical: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   editButtonText: {
-    color: '#2E7D32',
-    fontWeight: '500',
+    color: "#2E7D32",
+    fontWeight: "500",
     fontSize: 14,
   },
   addButton: {
-    position: 'absolute',
+    position: "absolute",
     right: 20,
     bottom: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2E7D32',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    backgroundColor: "#2E7D32",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 5,
   },
   emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 40,
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '500',
-    color: '#666',
+    fontWeight: "500",
+    color: "#666",
     marginTop: 16,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
+    color: "#888",
+    textAlign: "center",
     marginTop: 8,
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 20,
-    maxHeight: '80%',
+    maxHeight: "80%",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   modalForm: {
     padding: 20,
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#555',
+    fontWeight: "500",
+    color: "#555",
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     marginBottom: 16,
   },
   categoryContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginBottom: 16,
   },
   categoryButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     borderRadius: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -743,49 +791,49 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   activeCategoryButton: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: "#E8F5E9",
   },
   categoryButtonText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   activeCategoryText: {
-    color: '#2E7D32',
-    fontWeight: '500',
+    color: "#2E7D32",
+    fontWeight: "500",
   },
   periodContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 20,
   },
   periodButton: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     borderRadius: 8,
     paddingVertical: 10,
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 8,
   },
   activePeriodButton: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: "#E8F5E9",
   },
   periodButtonText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   activePeriodText: {
-    color: '#2E7D32',
-    fontWeight: '500',
+    color: "#2E7D32",
+    fontWeight: "500",
   },
   submitButton: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: "#2E7D32",
     borderRadius: 8,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 10,
   },
   submitButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
     fontSize: 16,
   },
 });
