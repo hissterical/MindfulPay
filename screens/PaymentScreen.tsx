@@ -7,6 +7,7 @@ import {
   Modal,
   Alert,
   TextInput,
+  ScrollView,
 } from "react-native";
 import PaymentForm from "../components/PaymentForm";
 import QRScanner from "../components/QRScanner";
@@ -16,7 +17,7 @@ import { checkSpendingLimit } from "../utils/spendingLimit";
 import { launchUpiPayment } from "../utils/upiLauncher";
 import Toast from "react-native-toast-message";
 import { useFinancial } from "../context/FinancialContext";
-import { EXPENSE_CATEGORIES } from "../utils/categories";
+import { EXPENSE_CATEGORIES, CATEGORY_ICONS } from "../utils/categories";
 
 const PaymentScreen: React.FC = () => {
   const { addTransaction, spendingLimits, categoryTotals } = useFinancial();
@@ -31,6 +32,7 @@ const PaymentScreen: React.FC = () => {
   const [upiId, setUpiId] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [showCategorySelector, setShowCategorySelector] = useState(false);
 
   useEffect(() => {
     // Initialize blocklist when component mounts
@@ -171,7 +173,7 @@ const PaymentScreen: React.FC = () => {
     }
 
     try {
-      // Add the transaction
+      // Add the transaction first
       await addTransaction({
         amount: paymentAmount,
         type: "expense",
@@ -181,17 +183,87 @@ const PaymentScreen: React.FC = () => {
         merchant: upiId,
       });
 
-      // Clear the form
-      setUpiId("");
-      setAmount("");
-      setCategory(EXPENSE_CATEGORIES[0]);
+      // Launch UPI payment
+      const success = await launchUpiPayment(
+        upiId,
+        paymentAmount,
+        `Payment for ${category}`
+      );
 
-      Alert.alert("Success", "Payment processed successfully!");
+      if (success) {
+        // Clear the form
+        setUpiId("");
+        setAmount("");
+        setCategory(EXPENSE_CATEGORIES[0]);
+        Toast.show({
+          type: "success",
+          text1: "Payment Successful",
+          text2: `₹${paymentAmount} paid to ${upiId}`,
+        });
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Payment Failed",
+          text2: "Please try again",
+        });
+      }
     } catch (error) {
       console.error("Error processing payment:", error);
       Alert.alert("Error", "Failed to process payment. Please try again.");
     }
   };
+
+  const CategorySelectorModal = () => (
+    <Modal
+      visible={showCategorySelector}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setShowCategorySelector(false)}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Select Category</Text>
+          <ScrollView style={styles.categoryScrollView}>
+            <View style={styles.categoryGrid}>
+              {EXPENSE_CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat}
+                  style={[
+                    styles.categoryButton,
+                    category === cat && styles.activeCategoryButton,
+                  ]}
+                  onPress={() => {
+                    setCategory(cat);
+                    setShowCategorySelector(false);
+                  }}
+                >
+                  <Ionicons
+                    name={CATEGORY_ICONS[cat] as any}
+                    size={24}
+                    color={category === cat ? "#fff" : "#2E7D32"}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryButtonText,
+                      category === cat && styles.activeCategoryText,
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.cancelButton]}
+            onPress={() => setShowCategorySelector(false)}
+          >
+            <Text style={styles.buttonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   if (showScanner) {
     return (
@@ -218,7 +290,22 @@ const PaymentScreen: React.FC = () => {
         <Ionicons name="qr-code-outline" size={24} color="white" />
         <Text style={styles.scanButtonText}>Scan QR Code</Text>
       </TouchableOpacity>
+
+      {/* Category Selection Button */}
+      <TouchableOpacity
+        style={styles.categoryButton}
+        onPress={() => setShowCategorySelector(true)}
+      >
+        <Ionicons
+          name={CATEGORY_ICONS[category] as any}
+          size={24}
+          color="#2E7D32"
+        />
+        <Text style={styles.categoryButtonText}>{category}</Text>
+      </TouchableOpacity>
+
       <BlockedPaymentModal />
+      <CategorySelectorModal />
     </View>
   );
 };
@@ -293,6 +380,42 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "white",
     fontWeight: "bold",
+  },
+  categoryButton: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    backgroundColor: "white",
+    borderRadius: 50,
+    padding: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  categoryButtonText: {
+    color: "#2E7D32",
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  categoryScrollView: {
+    maxHeight: 400,
+    width: "100%",
+  },
+  categoryGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    padding: 10,
+  },
+  activeCategoryButton: {
+    backgroundColor: "#2E7D32",
+  },
+  activeCategoryText: {
+    color: "white",
   },
 });
 

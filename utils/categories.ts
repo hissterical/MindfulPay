@@ -5,27 +5,17 @@
 // Transaction categories
 export const EXPENSE_CATEGORIES = [
   'Food & Dining',
-  'Shopping',
   'Transportation',
-  'Entertainment',
   'Bills & Utilities',
-  'Health & Medical',
-  'Education',
-  'Travel',
-  'Personal Care',
-  'Gifts & Donations',
-  'Housing',
-  'Investments',
+  'Shopping',
+  'Entertainment',
   'Other'
 ];
 
 export const INCOME_CATEGORIES = [
   'Salary',
-  'Freelance',
   'Business',
   'Investments',
-  'Gifts',
-  'Refunds',
   'Other'
 ];
 
@@ -33,13 +23,8 @@ export const INCOME_CATEGORIES = [
 export const GOAL_CATEGORIES = [
   'Savings',
   'Emergency Fund',
-  'Vacation',
-  'Education',
-  'Electronics',
-  'Vehicle',
   'Home',
   'Debt Repayment',
-  'Retirement',
   'Other'
 ];
 
@@ -47,34 +32,21 @@ export const GOAL_CATEGORIES = [
 export const CATEGORY_ICONS: Record<string, string> = {
   // Expense categories
   'Food & Dining': 'restaurant',
-  'Shopping': 'cart',
   'Transportation': 'car',
-  'Entertainment': 'film',
   'Bills & Utilities': 'receipt',
   'Health & Medical': 'medical',
-  'Education': 'school',
-  'Travel': 'airplane',
-  'Personal Care': 'person',
-  'Gifts & Donations': 'gift',
   'Housing': 'home',
-  'Investments': 'trending-up',
   
   // Income categories
   'Salary': 'cash',
-  'Freelance': 'briefcase',
   'Business': 'business',
-  'Gifts': 'gift',
-  'Refunds': 'return-down-back',
+  'Investments': 'trending-up',
   
   // Goal categories
   'Savings': 'save',
   'Emergency Fund': 'medkit',
-  'Vacation': 'airplane',
-  'Electronics': 'laptop',
-  'Vehicle': 'car',
   'Home': 'home',
   'Debt Repayment': 'trending-down',
-  'Retirement': 'umbrella',
   
   // Default
   'Other': 'ellipsis-horizontal'
