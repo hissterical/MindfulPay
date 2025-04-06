@@ -10,7 +10,7 @@ import {
   ScrollView,
   Keyboard,
 } from "react-native";
-import PaymentForm from "../components/PaymentForm";
+import PaymentForm, { PaymentFormRef } from "../components/PaymentForm";
 import QRScanner from "../components/QRScanner";
 import { Ionicons } from "@expo/vector-icons";
 import { checkVendorBlocklist } from "../utils/vendorCheck";
@@ -21,7 +21,7 @@ import { useFinancial } from "../context/FinancialContext";
 import { EXPENSE_CATEGORIES, CATEGORY_ICONS } from "../utils/categories";
 
 const PaymentScreen: React.FC = () => {
-  const { addTransaction, spendingLimits, categoryTotals } = useFinancial();
+  const { addTransaction, spendingLimits, categoryTotals, refreshData } = useFinancial();
   const [showScanner, setShowScanner] = useState(false);
   const [scannedUpiId, setScannedUpiId] = useState("");
   const [blockedModalVisible, setBlockedModalVisible] = useState(false);
@@ -32,9 +32,13 @@ const PaymentScreen: React.FC = () => {
   const [currentPaymentData, setCurrentPaymentData] = useState<any>(null);
   const [upiId, setUpiId] = useState("");
   const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
   const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Reference to PaymentForm component
+  const paymentFormRef = useRef<PaymentFormRef>(null);
 
   useEffect(() => {
     // Initialize blocklist when component mounts
@@ -78,24 +82,57 @@ const PaymentScreen: React.FC = () => {
 
   const handleEmergencyOverride = async () => {
     setBlockedModalVisible(false);
-    const paymentAmount = parseFloat(amount);
+    
+    if (!currentPaymentData || !currentPaymentData.upiId || !currentPaymentData.amount) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid payment data",
+        text2: "Please try again"
+      });
+      return;
+    }
+
+    const paymentAmount = currentPaymentData.amount;
+    const paymentUpiId = currentPaymentData.upiId;
 
     try {
+      // Add an emergency transaction
       await addTransaction({
         amount: paymentAmount,
         type: "expense",
         category,
-        description: `EMERGENCY: UPI Payment to ${upiId}`,
-        date: new Date().toISOString(),
-        merchant: upiId,
+        description: `EMERGENCY: UPI Payment to ${paymentUpiId}`,
+        date: new Date().toISOString().split('T')[0],
+        merchant: paymentUpiId,
       });
 
-      // Clear the form
-      setUpiId("");
-      setAmount("");
-      setCategory(EXPENSE_CATEGORIES[0]);
+      // Launch the UPI payment
+      const success = await launchUpiPayment(
+        paymentUpiId,
+        paymentAmount,
+        `Emergency payment for ${category}`
+      );
 
-      Alert.alert("Success", "Emergency payment processed successfully!");
+      if (success) {
+        Toast.show({
+          type: "success",
+          text1: "Emergency Payment Processed",
+          text2: `₹${paymentAmount} paid to ${paymentUpiId}`
+        });
+        
+        // Reset form and refresh data
+        if (paymentFormRef.current) {
+          paymentFormRef.current.resetForm();
+        }
+        setScannedUpiId("");
+        await refreshData();
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Payment Failed",
+          text2: "Please try again"
+        });
+      }
     } catch (error) {
       console.error("Error processing emergency payment:", error);
       Alert.alert(
@@ -141,9 +178,15 @@ const PaymentScreen: React.FC = () => {
 
   const handlePaymentAttempt = async (
     upiId: string,
-    amount: number
+    amount: number,
+    noteText?: string
   ): Promise<boolean> => {
     try {
+      // Save the payment details for potential transaction recording
+      setUpiId(upiId);
+      setAmount(amount.toString());
+      setNote(noteText || "");
+      
       // Check vendor blocklist
       const isBlocked = await checkVendorBlocklist(upiId);
       if (isBlocked) {
@@ -158,80 +201,41 @@ const PaymentScreen: React.FC = () => {
         return false;
       }
 
+      // Check if the payment would exceed the category limit
+      const categoryLimit = spendingLimits.find(
+        (limit) => limit.category === category && limit.period === "monthly"
+      );
+
+      if (categoryLimit) {
+        const currentSpent = categoryTotals[category] || 0;
+        if (currentSpent + amount > categoryLimit.amount) {
+          setBlockedMessage(
+            `This payment would exceed your monthly limit of ₹${categoryLimit.amount} for ${category}`
+          );
+          setBlockedReason("limit");
+          setBlockedModalVisible(true);
+          return false;
+        }
+      }
+
+      // If all checks pass, record the transaction
+      await addTransaction({
+        amount: amount,
+        type: "expense",
+        category,
+        description: noteText ? `UPI Payment: ${noteText}` : `UPI Payment to ${upiId}`,
+        date: new Date().toISOString().split('T')[0],
+        merchant: upiId,
+      });
+
+      // Refresh data to update transaction lists
+      await refreshData();
+      
+      // Return true to allow the payment to proceed
       return true;
     } catch (error) {
       console.error("Error checking payment conditions:", error);
       return false;
-    }
-  };
-
-  const handlePayment = async () => {
-    if (!upiId || !amount) {
-      Alert.alert("Error", "Please enter both UPI ID and amount");
-      return;
-    }
-
-    const paymentAmount = parseFloat(amount);
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
-      Alert.alert("Error", "Please enter a valid amount");
-      return;
-    }
-
-    // Check if the payment would exceed the category limit
-    const categoryLimit = spendingLimits.find(
-      (limit) => limit.category === category && limit.period === "monthly"
-    );
-
-    if (categoryLimit) {
-      const currentSpent = categoryTotals[category] || 0;
-      if (currentSpent + paymentAmount > categoryLimit.amount) {
-        setBlockedMessage(
-          `This payment would exceed your monthly limit of ₹${categoryLimit.amount} for ${category}`
-        );
-        setBlockedReason("limit");
-        setBlockedModalVisible(true);
-        return;
-      }
-    }
-
-    try {
-      // Add the transaction first
-      await addTransaction({
-        amount: paymentAmount,
-        type: "expense",
-        category,
-        description: `UPI Payment to ${upiId}`,
-        date: new Date().toISOString(),
-        merchant: upiId,
-      });
-
-      // Launch UPI payment
-      const success = await launchUpiPayment(
-        upiId,
-        paymentAmount,
-        `Payment for ${category}`
-      );
-
-      if (success) {
-        // Clear the form
-        setUpiId("");
-        setAmount("");
-        setCategory(EXPENSE_CATEGORIES[0]);
-        Toast.show({
-          type: "success",
-          text1: "Payment Successful",
-          text2: `₹${paymentAmount} paid to ${upiId}`,
-        });
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Payment Failed",
-          text2: "Please try again",
-        });
-      }
-    } catch (error) {
-      console.error("Error processing payment:", error);
-      Alert.alert("Error", "Failed to process payment. Please try again.");
     }
   };
 
@@ -300,6 +304,7 @@ const PaymentScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <PaymentForm
+        ref={paymentFormRef}
         upiId={scannedUpiId}
         onPaymentAttempt={handlePaymentAttempt}
       />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import {
   View,
   Text,
@@ -16,18 +16,38 @@ interface PaymentFormProps {
   upiId?: string;
   onPaymentAttempt?: (
     upiId: string,
-    amount: number
+    amount: number,
+    note?: string
   ) => boolean | Promise<boolean>;
 }
 
-const PaymentForm: React.FC<PaymentFormProps> = ({
+export interface PaymentFormRef {
+  resetForm: () => void;
+  getFormValues: () => { upiId: string; amount: string; note: string };
+}
+
+const PaymentForm = forwardRef<PaymentFormRef, PaymentFormProps>(({
   upiId: scannedUpiId,
   onPaymentAttempt,
-}) => {
+}, ref) => {
   const [upiId, setUpiId] = useState(scannedUpiId || "");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Expose methods to parent component through ref
+  useImperativeHandle(ref, () => ({
+    resetForm: () => {
+      setAmount("");
+      setNote("");
+      setUpiId("");
+    },
+    getFormValues: () => ({
+      upiId,
+      amount,
+      note
+    })
+  }));
 
   // Update UPI ID when scanned value is received
   useEffect(() => {
@@ -61,7 +81,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     try {
       // Check if payment should be blocked
       if (onPaymentAttempt) {
-        const canProceed = await onPaymentAttempt(upiId, amountValue);
+        const canProceed = await onPaymentAttempt(upiId, amountValue, note);
         if (!canProceed) {
           setIsLoading(false);
           return;
@@ -71,6 +91,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       // Launch UPI payment
       const success = await launchUpiPayment(upiId, amountValue, note);
       if (success) {
+        // Clear form fields after successful payment
+        setAmount("");
+        setNote("");
+        
         Toast.show({
           type: "success",
           text1: "Payment Initiated",
@@ -134,7 +158,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
