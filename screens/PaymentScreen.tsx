@@ -194,23 +194,30 @@ const PaymentScreen: React.FC = () => {
         return false;
       }
 
-      // Check spending limit
-      const isWithinLimit = await checkSpendingLimit(amount);
-      if (!isWithinLimit) {
+      // Check global spending limit (handled by checkSpendingLimit utility)
+      const isWithinGlobalLimit = await checkSpendingLimit(amount, category);
+      if (!isWithinGlobalLimit) {
         handleBlockedPayment(upiId, amount, "limit");
         return false;
       }
 
-      // Check if the payment would exceed the category limit
+      // Check category-specific limit from spendingLimits state
       const categoryLimit = spendingLimits.find(
         (limit) => limit.category === category && limit.period === "monthly"
       );
 
       if (categoryLimit) {
         const currentSpent = categoryTotals[category] || 0;
-        if (currentSpent + amount > categoryLimit.amount) {
+        const totalWithNewTransaction = currentSpent + amount;
+        
+        if (totalWithNewTransaction > categoryLimit.amount) {
+          const remainingBudget = Math.max(0, categoryLimit.amount - currentSpent);
+          
           setBlockedMessage(
-            `This payment would exceed your monthly limit of ₹${categoryLimit.amount} for ${category}`
+            `This payment of ₹${amount} would exceed your monthly limit for ${category}.\n\n` +
+            `Current spending: ₹${currentSpent}\n` +
+            `Monthly limit: ₹${categoryLimit.amount}\n` +
+            `Remaining budget: ₹${remainingBudget}`
           );
           setBlockedReason("limit");
           setBlockedModalVisible(true);
