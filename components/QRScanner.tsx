@@ -7,6 +7,7 @@ import {
   Alert,
   Platform,
   PermissionsAndroid,
+  Modal,
 } from "react-native";
 import { RNCamera } from "react-native-camera";
 import { launchUpiPayment } from "../utils/upiLauncher";
@@ -19,11 +20,67 @@ interface QRScannerProps {
   onScanSuccess?: (upiId: string) => void;
 }
 
+interface BlockedPaymentModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onEmergencyOverride: () => void;
+  message: string;
+  reason: "blacklist" | "limit";
+}
+
+const BlockedPaymentModal: React.FC<BlockedPaymentModalProps> = ({
+  visible,
+  onClose,
+  onEmergencyOverride,
+  message,
+  reason,
+}) => {
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>
+            {reason === "blacklist"
+              ? "Blocked Vendor"
+              : "Spending Limit Reached"}
+          </Text>
+          <Text style={styles.modalMessage}>{message}</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.emergencyButton]}
+              onPress={onEmergencyOverride}
+            >
+              <Text style={styles.buttonText}>Emergency Override</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.cancelButton]}
+              onPress={onClose}
+            >
+              <Text style={styles.buttonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [blockedModalVisible, setBlockedModalVisible] = useState(false);
+  const [blockedMessage, setBlockedMessage] = useState("");
+  const [blockedReason, setBlockedReason] = useState<"blacklist" | "limit">(
+    "blacklist"
+  );
+  const [currentUpiData, setCurrentUpiData] = useState<any>(null);
 
   useEffect(() => {
     checkCameraPermission();
@@ -61,6 +118,72 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
     } catch (error) {
       console.error("Error parsing UPI QR data:", error);
       return null;
+    }
+  };
+
+  const handleBlockedPayment = (
+    upiData: any,
+    reason: "blacklist" | "limit"
+  ) => {
+    setCurrentUpiData(upiData);
+    setBlockedReason(reason);
+    setBlockedMessage(
+      reason === "blacklist"
+        ? `Payments to ${upiData.upiId} are blocked due to security concerns.`
+        : "You have reached your monthly spending limit. Emergency override available."
+    );
+    setBlockedModalVisible(true);
+  };
+
+  const handleEmergencyOverride = async () => {
+    setBlockedModalVisible(false);
+    setIsLoading(true);
+
+    try {
+      // Confirm emergency override
+      Alert.alert(
+        "Emergency Override",
+        "Are you sure you want to proceed with this payment? This action will be logged.",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => {
+              setIsLoading(false);
+              setScanned(false);
+            },
+          },
+          {
+            text: "Proceed",
+            onPress: async () => {
+              const success = await launchUpiPayment(
+                currentUpiData.upiId,
+                currentUpiData.amount || 0,
+                currentUpiData.note
+              );
+
+              if (success) {
+                Toast.show({
+                  type: "success",
+                  text1: "Payment Initiated",
+                  text2: "UPI payment app launched successfully",
+                });
+                onClose();
+              }
+              setIsLoading(false);
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Toast.show({
+        type: "error",
+        text1: "Payment Failed",
+        text2: "Could not process UPI payment",
+      });
+      console.error("Emergency payment error:", error);
+      setIsLoading(false);
+      setScanned(false);
     }
   };
 
@@ -110,11 +233,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
     try {
       // Check vendor blocklist
       if (checkVendorBlocklist(upiData.upiId)) {
-        Toast.show({
-          type: "error",
-          text1: "Payment Blocked",
-          text2: `Payments to ${upiData.upiId} are not allowed`,
-        });
+        handleBlockedPayment(upiData, "blacklist");
         setIsLoading(false);
         return;
       }
@@ -123,17 +242,13 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
       if (upiData.amount > 0) {
         const isWithinLimit = await checkSpendingLimit(upiData.amount);
         if (!isWithinLimit) {
-          Toast.show({
-            type: "error",
-            text1: "Spending Limit Exceeded",
-            text2: "You have exceeded your daily spending limit",
-          });
+          handleBlockedPayment(upiData, "limit");
           setIsLoading(false);
           return;
         }
       }
 
-      // Confirm payment details
+      // If all checks pass, proceed with normal payment
       Alert.alert(
         "Confirm Payment",
         `Pay ₹${upiData.amount || "Not specified"} to ${
@@ -151,10 +266,9 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
           {
             text: "Pay",
             onPress: async () => {
-              // Launch UPI payment
               const success = await launchUpiPayment(
                 upiData.upiId,
-                upiData.amount || 0, // If amount is not in QR, user will enter in UPI app
+                upiData.amount || 0,
                 upiData.note
               );
 
@@ -164,7 +278,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
                   text1: "Payment Initiated",
                   text2: "UPI payment app launched successfully",
                 });
-                onClose(); // Close scanner after successful payment
+                onClose();
               }
               setIsLoading(false);
             },
@@ -249,6 +363,17 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
         <View style={styles.scanWindow} />
         <Text style={styles.instructions}>Align QR code within the frame</Text>
       </View>
+
+      <BlockedPaymentModal
+        visible={blockedModalVisible}
+        onClose={() => {
+          setBlockedModalVisible(false);
+          setScanned(false);
+        }}
+        onEmergencyOverride={handleEmergencyOverride}
+        message={blockedMessage}
+        reason={blockedReason}
+      />
     </View>
   );
 };
@@ -311,6 +436,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 20,
     textAlign: "center",
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 20,
+    width: "80%",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#2E7D32",
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 20,
+    color: "#333",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  modalButton: {
+    padding: 10,
+    borderRadius: 5,
+    minWidth: 120,
+    alignItems: "center",
+  },
+  emergencyButton: {
+    backgroundColor: "#D32F2F",
+  },
+  cancelButton: {
+    backgroundColor: "#757575",
   },
 });
 

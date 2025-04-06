@@ -3,86 +3,189 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Default daily spending limit (in rupees)
-const DEFAULT_DAILY_LIMIT = 5000;
-
-// Storage key for daily spending
-const DAILY_SPENDING_KEY = 'mindfulpay_daily_spending';
-
-// Interface for spending data
-interface DailySpending {
-  date: string;
+interface Transaction {
   amount: number;
+  date: string;
+  category: string;
+  description: string;
 }
 
-/**
- * Gets today's date in YYYY-MM-DD format
- */
-const getTodayDateString = (): string => {
-  const today = new Date();
-  return today.toISOString().split('T')[0]; // YYYY-MM-DD format
+interface SpendingLimit {
+  monthlyLimit: number;
+  dailyLimit: number;
+  categoryLimits: {
+    [key: string]: number;
+  };
+}
+
+// Default spending limits
+const DEFAULT_LIMITS: SpendingLimit = {
+  monthlyLimit: 50000, // ₹50,000
+  dailyLimit: 10000,  // ₹10,000
+  categoryLimits: {
+    'shopping': 20000,
+    'food': 15000,
+    'entertainment': 10000,
+    'travel': 25000,
+    'utilities': 5000,
+    'health': 10000,
+    'education': 15000,
+    'other': 5000,
+  }
 };
 
-/**
- * Gets the current daily spending
- * @returns The current daily spending amount
- */
-export const getCurrentDailySpending = async (): Promise<number> => {
-  try {
-    const todayString = getTodayDateString();
-    const spendingData = await AsyncStorage.getItem(DAILY_SPENDING_KEY);
-    
-    if (spendingData) {
-      const spending: DailySpending = JSON.parse(spendingData);
-      
-      // If the stored date is today, return the amount
-      if (spending.date === todayString) {
-        return spending.amount;
-      }
+// Example transactions for the current month
+const EXAMPLE_TRANSACTIONS: Transaction[] = [
+  {
+    amount: 2500,
+    date: '2024-04-01',
+    category: 'food',
+    description: 'Restaurant dinner',
+  },
+  {
+    amount: 1500,
+    date: '2024-04-02',
+    category: 'shopping',
+    description: 'Clothing purchase',
+  },
+  {
+    amount: 3000,
+    date: '2024-04-03',
+    category: 'travel',
+    description: 'Train tickets',
+  },
+  {
+    amount: 2000,
+    date: '2024-04-04',
+    category: 'entertainment',
+    description: 'Movie tickets',
+  },
+  {
+    amount: 5000,
+    date: '2024-04-05',
+    category: 'health',
+    description: 'Medical checkup',
+  },
+  {
+    amount: 10000,
+    date: '2024-04-06',
+    category: 'education',
+    description: 'Online course',
+  },
+  {
+    amount: 2000,
+    date: '2024-04-07',
+    category: 'utilities',
+    description: 'Electricity bill',
+  },
+  {
+    amount: 3000,
+    date: '2024-04-08',
+    category: 'food',
+    description: 'Grocery shopping',
+  },
+  {
+    amount: 5000,
+    date: '2024-04-09',
+    category: 'shopping',
+    description: 'Electronics',
+  },
+  {
+    amount: 4000,
+    date: '2024-04-10',
+    category: 'travel',
+    description: 'Flight tickets',
+  },
+];
+
+// Calculate total spent in current month
+const calculateMonthlySpent = (): number => {
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  return EXAMPLE_TRANSACTIONS.reduce((total, transaction) => {
+    const transactionDate = new Date(transaction.date);
+    if (transactionDate.getMonth() === currentMonth && 
+        transactionDate.getFullYear() === currentYear) {
+      return total + transaction.amount;
     }
-    
-    // If no data or data is from a different day, return 0
-    return 0;
-  } catch (error) {
-    console.error('Error getting daily spending:', error);
-    return 0;
-  }
+    return total;
+  }, 0);
 };
 
-/**
- * Updates the daily spending with a new transaction
- * @param amount The amount to add to daily spending
- */
-export const updateDailySpending = async (amount: number): Promise<void> => {
-  try {
-    const todayString = getTodayDateString();
-    const currentSpending = await getCurrentDailySpending();
-    
-    const newSpending: DailySpending = {
-      date: todayString,
-      amount: currentSpending + amount,
-    };
-    
-    await AsyncStorage.setItem(DAILY_SPENDING_KEY, JSON.stringify(newSpending));
-  } catch (error) {
-    console.error('Error updating daily spending:', error);
-  }
+// Calculate total spent today
+const calculateDailySpent = (): number => {
+  const today = new Date().toISOString().split('T')[0];
+  
+  return EXAMPLE_TRANSACTIONS.reduce((total, transaction) => {
+    if (transaction.date === today) {
+      return total + transaction.amount;
+    }
+    return total;
+  }, 0);
 };
 
-/**
- * Checks if a transaction amount exceeds the daily spending limit
- * @param amount The transaction amount to check
- * @returns true if the transaction is within limit, false otherwise
- */
-export const checkSpendingLimit = async (amount: number): Promise<boolean> => {
-  try {
-    const currentSpending = await getCurrentDailySpending();
-    const totalAfterTransaction = currentSpending + amount;
-    
-    // Check if the total spending after this transaction would exceed the limit
-    return totalAfterTransaction <= DEFAULT_DAILY_LIMIT;
-  } catch (error) {
-    console.error('Error checking spending limit:', error);
-    return false; // Fail safe - block transaction if there's an error
+// Calculate spent in a specific category
+const calculateCategorySpent = (category: string): number => {
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  return EXAMPLE_TRANSACTIONS.reduce((total, transaction) => {
+    const transactionDate = new Date(transaction.date);
+    if (transaction.category === category &&
+        transactionDate.getMonth() === currentMonth &&
+        transactionDate.getFullYear() === currentYear) {
+      return total + transaction.amount;
+    }
+    return total;
+  }, 0);
+};
+
+export const checkSpendingLimit = async (amount: number, category?: string): Promise<boolean> => {
+  const monthlySpent = calculateMonthlySpent();
+  const dailySpent = calculateDailySpent();
+  
+  // Check monthly limit
+  if (monthlySpent + amount > DEFAULT_LIMITS.monthlyLimit) {
+    return false;
   }
+  
+  // Check daily limit
+  if (dailySpent + amount > DEFAULT_LIMITS.dailyLimit) {
+    return false;
+  }
+  
+  // Check category limit if specified
+  if (category && DEFAULT_LIMITS.categoryLimits[category]) {
+    const categorySpent = calculateCategorySpent(category);
+    if (categorySpent + amount > DEFAULT_LIMITS.categoryLimits[category]) {
+      return false;
+    }
+  }
+  
+  return true;
+};
+
+export const getSpendingSummary = () => {
+  const monthlySpent = calculateMonthlySpent();
+  const dailySpent = calculateDailySpent();
+  
+  return {
+    monthly: {
+      spent: monthlySpent,
+      limit: DEFAULT_LIMITS.monthlyLimit,
+      remaining: DEFAULT_LIMITS.monthlyLimit - monthlySpent,
+    },
+    daily: {
+      spent: dailySpent,
+      limit: DEFAULT_LIMITS.dailyLimit,
+      remaining: DEFAULT_LIMITS.dailyLimit - dailySpent,
+    },
+    categories: Object.keys(DEFAULT_LIMITS.categoryLimits).map(category => ({
+      category,
+      spent: calculateCategorySpent(category),
+      limit: DEFAULT_LIMITS.categoryLimits[category],
+      remaining: DEFAULT_LIMITS.categoryLimits[category] - calculateCategorySpent(category),
+    })),
+  };
 };
