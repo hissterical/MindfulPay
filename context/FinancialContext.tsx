@@ -105,24 +105,33 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
       const transactionsData = await AsyncStorage.getItem(TRANSACTIONS_KEY);
       if (transactionsData) {
         setTransactions(JSON.parse(transactionsData));
+      } else {
+        // Initialize with empty array if no data exists
+        setTransactions([]);
       }
 
       // Load goals
       const goalsData = await AsyncStorage.getItem(GOALS_KEY);
       if (goalsData) {
         setGoals(JSON.parse(goalsData));
+      } else {
+        setGoals([]);
       }
 
       // Load spending limits
       const limitsData = await AsyncStorage.getItem(SPENDING_LIMITS_KEY);
       if (limitsData) {
         setSpendingLimits(JSON.parse(limitsData));
+      } else {
+        setSpendingLimits([]);
       }
 
       // Load blocked merchants
       const merchantsData = await AsyncStorage.getItem(BLOCKED_MERCHANTS_KEY);
       if (merchantsData) {
         setBlockedMerchants(JSON.parse(merchantsData));
+      } else {
+        setBlockedMerchants([]);
       }
     } catch (error) {
       console.error('Error loading financial data:', error);
@@ -295,7 +304,24 @@ export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children 
 
   // Utility functions
   const refreshData = async () => {
-    await loadAllData();
+    try {
+      // Reload transactions
+      const transactionsData = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+      if (transactionsData) {
+        const parsedTransactions = JSON.parse(transactionsData);
+        setTransactions(parsedTransactions);
+      } else {
+        setTransactions([]);
+      }
+      
+      // Reload other data as needed
+      await loadAllData();
+      
+      // Recalculate summary data
+      calculateSummaryData();
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
   };
 
   const clearAllData = async () => {

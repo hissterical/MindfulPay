@@ -324,7 +324,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
       <Camera
         ref={cameraRef}
         style={StyleSheet.absoluteFillObject}
-        type={CameraType.back}
+        type="back"
         onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
         barCodeScannerSettings={{
           barCodeTypes: ['qr'],
