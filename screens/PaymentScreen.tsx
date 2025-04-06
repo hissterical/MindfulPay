@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -12,6 +12,7 @@ import QRScanner from "../components/QRScanner";
 import { Ionicons } from "@expo/vector-icons";
 import { checkVendorBlocklist } from "../utils/vendorCheck";
 import { checkSpendingLimit } from "../utils/spendingLimit";
+import { launchUpiPayment } from "../utils/upiLauncher";
 import Toast from "react-native-toast-message";
 
 const PaymentScreen: React.FC = () => {
@@ -24,6 +25,11 @@ const PaymentScreen: React.FC = () => {
   );
   const [currentPaymentData, setCurrentPaymentData] = useState<any>(null);
 
+  useEffect(() => {
+    // Initialize blocklist when component mounts
+    checkVendorBlocklist("test@upi"); // This will trigger initialization
+  }, []);
+
   const handleBlockedPayment = (
     upiId: string,
     amount: number,
@@ -33,7 +39,7 @@ const PaymentScreen: React.FC = () => {
     setBlockedReason(reason);
     setBlockedMessage(
       reason === "blacklist"
-        ? `Payments to ${upiId} are blocked due to security concerns.`
+        ? `Payments to ${upiId} are blocked to help you control your spending.`
         : "You have reached your monthly spending limit. Emergency override available."
     );
     setBlockedModalVisible(true);
@@ -46,7 +52,7 @@ const PaymentScreen: React.FC = () => {
       // Confirm emergency override
       Alert.alert(
         "Emergency Override",
-        "Are you sure you want to proceed with this payment? This action will be logged.",
+        "Are you sure you want to proceed with this payment? This will bypass your spending controls.",
         [
           {
             text: "Cancel",
@@ -55,12 +61,21 @@ const PaymentScreen: React.FC = () => {
           {
             text: "Proceed",
             onPress: async () => {
-              // Here you would implement the actual payment logic
-              Toast.show({
-                type: "success",
-                text1: "Payment Initiated",
-                text2: "Emergency override approved",
-              });
+              if (currentPaymentData) {
+                const success = await launchUpiPayment(
+                  currentPaymentData.upiId,
+                  currentPaymentData.amount,
+                  "Emergency override payment"
+                );
+
+                if (success) {
+                  Toast.show({
+                    type: "success",
+                    text1: "Payment Initiated",
+                    text2: "UPI payment app launched successfully",
+                  });
+                }
+              }
             },
           },
         ]
@@ -109,6 +124,32 @@ const PaymentScreen: React.FC = () => {
     </Modal>
   );
 
+  const handlePaymentAttempt = async (
+    upiId: string,
+    amount: number
+  ): Promise<boolean> => {
+    try {
+      // Check vendor blocklist
+      const isBlocked = await checkVendorBlocklist(upiId);
+      if (isBlocked) {
+        handleBlockedPayment(upiId, amount, "blacklist");
+        return false;
+      }
+
+      // Check spending limit
+      const isWithinLimit = await checkSpendingLimit(amount);
+      if (!isWithinLimit) {
+        handleBlockedPayment(upiId, amount, "limit");
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error checking payment conditions:", error);
+      return false;
+    }
+  };
+
   if (showScanner) {
     return (
       <QRScanner
@@ -125,22 +166,7 @@ const PaymentScreen: React.FC = () => {
     <View style={styles.container}>
       <PaymentForm
         upiId={scannedUpiId}
-        onPaymentAttempt={(upiId, amount) => {
-          // Check vendor blocklist
-          if (checkVendorBlocklist(upiId)) {
-            handleBlockedPayment(upiId, amount, "blacklist");
-            return false;
-          }
-
-          // Check spending limit
-          checkSpendingLimit(amount).then((isWithinLimit) => {
-            if (!isWithinLimit) {
-              handleBlockedPayment(upiId, amount, "limit");
-              return false;
-            }
-            return true;
-          });
-        }}
+        onPaymentAttempt={handlePaymentAttempt}
       />
       <TouchableOpacity
         style={styles.scanButton}

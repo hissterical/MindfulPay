@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -81,6 +81,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
     "blacklist"
   );
   const [currentUpiData, setCurrentUpiData] = useState<any>(null);
+  const cameraRef = useRef<RNCamera>(null);
 
   useEffect(() => {
     checkCameraPermission();
@@ -89,10 +90,17 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
   const checkCameraPermission = async () => {
     try {
       if (Platform.OS === "android") {
-        const granted = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.CAMERA
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: "Camera Permission",
+            message: "App needs camera permission to scan QR codes",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK",
+          }
         );
-        setHasPermission(granted);
+        setHasPermission(granted === PermissionsAndroid.RESULTS.GRANTED);
       } else {
         setHasPermission(true);
       }
@@ -232,7 +240,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
 
     try {
       // Check vendor blocklist
-      if (checkVendorBlocklist(upiData.upiId)) {
+      const isBlocked = await checkVendorBlocklist(upiData.upiId);
+      if (isBlocked) {
         handleBlockedPayment(upiData, "blacklist");
         setIsLoading(false);
         return;
@@ -308,12 +317,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
     );
   }
 
-  // Camera permission handling is now done by RNCamera component
-  // We'll show a simple loading state while waiting for camera
   if (hasPermission === null) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>Initializing camera...</Text>
+        <Text style={styles.text}>Requesting camera permission...</Text>
       </View>
     );
   }
@@ -321,7 +328,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
   if (hasPermission === false) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>Camera permission denied</Text>
+        <Text style={styles.text}>No access to camera</Text>
         <TouchableOpacity style={styles.button} onPress={onClose}>
           <Text style={styles.buttonText}>Go Back</Text>
         </TouchableOpacity>
@@ -332,6 +339,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
   return (
     <View style={styles.container}>
       <RNCamera
+        ref={cameraRef}
         style={StyleSheet.absoluteFillObject}
         type={RNCamera.Constants.Type.back}
         captureAudio={false}
@@ -344,6 +352,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
         }}
         onBarCodeRead={scanned ? undefined : handleBarCodeScanned}
         barCodeTypes={[RNCamera.Constants.BarCodeType.qr]}
+        onMountError={(error) => {
+          console.error("Camera mount error:", error);
+          setCameraError("Failed to initialize camera");
+        }}
       />
 
       {scanned && !isLoading && (
