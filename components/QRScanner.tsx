@@ -1,10 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
-import { RNCamera } from 'react-native-camera';
-import { launchUpiPayment } from '../utils/upiLauncher';
-import Toast from 'react-native-toast-message';
-import { checkVendorBlocklist } from '../utils/vendorCheck';
-import { checkSpendingLimit } from '../utils/spendingLimit';
+import React, { useState, useEffect } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Alert,
+  Platform,
+  PermissionsAndroid,
+} from "react-native";
+import { RNCamera } from "react-native-camera";
+import { launchUpiPayment } from "../utils/upiLauncher";
+import Toast from "react-native-toast-message";
+import { checkVendorBlocklist } from "../utils/vendorCheck";
+import { checkSpendingLimit } from "../utils/spendingLimit";
 
 interface QRScannerProps {
   onClose: () => void;
@@ -15,74 +23,96 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Camera permissions are handled by the RNCamera component
-    // We'll set permission to true and handle permission errors in the render method
-    setHasPermission(true);
+    checkCameraPermission();
   }, []);
+
+  const checkCameraPermission = async () => {
+    try {
+      if (Platform.OS === "android") {
+        const granted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.CAMERA
+        );
+        setHasPermission(granted);
+      } else {
+        setHasPermission(true);
+      }
+    } catch (error) {
+      console.error("Camera permission error:", error);
+      setCameraError("Failed to initialize camera");
+      setHasPermission(false);
+    }
+  };
 
   const parseUpiQrData = (data: string) => {
     try {
       // UPI QR codes typically have format: upi://pay?pa=UPI_ID&pn=NAME&am=AMOUNT&cu=CURRENCY&tn=NOTE
       const url = new URL(data);
       const params = new URLSearchParams(url.search);
-      
+
       return {
-        upiId: params.get('pa') || '',
-        name: params.get('pn') || '',
-        amount: params.get('am') ? parseFloat(params.get('am') || '0') : 0,
-        note: params.get('tn') || 'Payment via QR code',
+        upiId: params.get("pa") || "",
+        name: params.get("pn") || "",
+        amount: params.get("am") ? parseFloat(params.get("am") || "0") : 0,
+        note: params.get("tn") || "Payment via QR code",
       };
     } catch (error) {
-      console.error('Error parsing UPI QR data:', error);
+      console.error("Error parsing UPI QR data:", error);
       return null;
     }
   };
 
-  const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+  const handleBarCodeScanned = async ({
+    type,
+    data,
+  }: {
+    type: string;
+    data: string;
+  }) => {
     setScanned(true);
-    
+
     // Check if it's a UPI QR code
-    if (!data.startsWith('upi://')) {
+    if (!data.startsWith("upi://")) {
       Toast.show({
-        type: 'error',
-        text1: 'Invalid QR Code',
-        text2: 'This is not a valid UPI QR code',
+        type: "error",
+        text1: "Invalid QR Code",
+        text2: "This is not a valid UPI QR code",
       });
       return;
     }
-    
+
     const upiData = parseUpiQrData(data);
-    
+
     if (!upiData) {
       Toast.show({
-        type: 'error',
-        text1: 'Invalid QR Code',
-        text2: 'Could not parse UPI QR code data',
+        type: "error",
+        text1: "Invalid QR Code",
+        text2: "Could not parse UPI QR code data",
       });
       return;
     }
-    
+
     // If onScanSuccess is provided and we just want to extract the UPI ID
     if (onScanSuccess) {
       Toast.show({
-        type: 'success',
-        text1: 'QR Code Scanned',
+        type: "success",
+        text1: "QR Code Scanned",
         text2: `UPI ID: ${upiData.upiId} detected`,
       });
       onScanSuccess(upiData.upiId);
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       // Check vendor blocklist
       if (checkVendorBlocklist(upiData.upiId)) {
         Toast.show({
-          type: 'error',
-          text1: 'Payment Blocked',
+          type: "error",
+          text1: "Payment Blocked",
           text2: `Payments to ${upiData.upiId} are not allowed`,
         });
         setIsLoading(false);
@@ -94,9 +124,9 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
         const isWithinLimit = await checkSpendingLimit(upiData.amount);
         if (!isWithinLimit) {
           Toast.show({
-            type: 'error',
-            text1: 'Spending Limit Exceeded',
-            text2: 'You have exceeded your daily spending limit',
+            type: "error",
+            text1: "Spending Limit Exceeded",
+            text2: "You have exceeded your daily spending limit",
           });
           setIsLoading(false);
           return;
@@ -105,19 +135,21 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
 
       // Confirm payment details
       Alert.alert(
-        'Confirm Payment',
-        `Pay ₹${upiData.amount || 'Not specified'} to ${upiData.name || upiData.upiId}?`,
+        "Confirm Payment",
+        `Pay ₹${upiData.amount || "Not specified"} to ${
+          upiData.name || upiData.upiId
+        }?`,
         [
           {
-            text: 'Cancel',
-            style: 'cancel',
+            text: "Cancel",
+            style: "cancel",
             onPress: () => {
               setIsLoading(false);
               setScanned(false);
             },
           },
           {
-            text: 'Pay',
+            text: "Pay",
             onPress: async () => {
               // Launch UPI payment
               const success = await launchUpiPayment(
@@ -125,12 +157,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
                 upiData.amount || 0, // If amount is not in QR, user will enter in UPI app
                 upiData.note
               );
-              
+
               if (success) {
                 Toast.show({
-                  type: 'success',
-                  text1: 'Payment Initiated',
-                  text2: 'UPI payment app launched successfully',
+                  type: "success",
+                  text1: "Payment Initiated",
+                  text2: "UPI payment app launched successfully",
                 });
                 onClose(); // Close scanner after successful payment
               }
@@ -141,15 +173,26 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
       );
     } catch (error) {
       Toast.show({
-        type: 'error',
-        text1: 'Payment Failed',
-        text2: 'Could not process UPI payment',
+        type: "error",
+        text1: "Payment Failed",
+        text2: "Could not process UPI payment",
       });
-      console.error('QR payment error:', error);
+      console.error("QR payment error:", error);
       setIsLoading(false);
       setScanned(false);
     }
   };
+
+  if (cameraError) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.text}>{cameraError}</Text>
+        <TouchableOpacity style={styles.button} onPress={onClose}>
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // Camera permission handling is now done by RNCamera component
   // We'll show a simple loading state while waiting for camera
@@ -179,28 +222,29 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
         type={RNCamera.Constants.Type.back}
         captureAudio={false}
         androidCameraPermissionOptions={{
-          title: 'Permission to use camera',
-          message: 'We need your permission to use your camera to scan QR codes',
-          buttonPositive: 'OK',
-          buttonNegative: 'Cancel',
+          title: "Permission to use camera",
+          message:
+            "We need your permission to use your camera to scan QR codes",
+          buttonPositive: "OK",
+          buttonNegative: "Cancel",
         }}
         onBarCodeRead={scanned ? undefined : handleBarCodeScanned}
         barCodeTypes={[RNCamera.Constants.BarCodeType.qr]}
       />
-      
+
       {scanned && !isLoading && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.scanAgainButton}
           onPress={() => setScanned(false)}
         >
           <Text style={styles.buttonText}>Scan Again</Text>
         </TouchableOpacity>
       )}
-      
+
       <TouchableOpacity style={styles.closeButton} onPress={onClose}>
         <Text style={styles.buttonText}>Cancel</Text>
       </TouchableOpacity>
-      
+
       <View style={styles.overlay}>
         <View style={styles.scanWindow} />
         <Text style={styles.instructions}>Align QR code within the frame</Text>
@@ -212,61 +256,61 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: "black",
   },
   text: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 20,
   },
   button: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: "#2E7D32",
     padding: 15,
     borderRadius: 8,
     margin: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   scanAgainButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 100,
-    alignSelf: 'center',
-    backgroundColor: '#2E7D32',
+    alignSelf: "center",
+    backgroundColor: "#2E7D32",
     padding: 15,
     borderRadius: 8,
     width: 150,
-    alignItems: 'center',
+    alignItems: "center",
   },
   closeButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 40,
     right: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: "rgba(0,0,0,0.6)",
     padding: 10,
     borderRadius: 8,
   },
   overlay: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   scanWindow: {
     width: 250,
     height: 250,
     borderWidth: 2,
-    borderColor: '#2E7D32',
-    backgroundColor: 'transparent',
+    borderColor: "#2E7D32",
+    backgroundColor: "transparent",
   },
   instructions: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
     marginTop: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
 
