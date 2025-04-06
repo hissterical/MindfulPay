@@ -1,18 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { checkVendorBlocklist } from '../utils/vendorCheck';
-import { checkSpendingLimit } from '../utils/spendingLimit';
-import { launchUpiPayment } from '../utils/upiLauncher';
-import Toast from 'react-native-toast-message';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from "react-native";
+import { checkVendorBlocklist } from "../utils/vendorCheck";
+import { checkSpendingLimit } from "../utils/spendingLimit";
+import { launchUpiPayment } from "../utils/upiLauncher";
+import Toast from "react-native-toast-message";
 
 interface PaymentFormProps {
   upiId?: string;
+  onPaymentAttempt?: (
+    upiId: string,
+    amount: number
+  ) => boolean | Promise<boolean>;
 }
 
-const PaymentForm: React.FC<PaymentFormProps> = ({ upiId: scannedUpiId }) => {
-  const [upiId, setUpiId] = useState('');
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
+const PaymentForm: React.FC<PaymentFormProps> = ({
+  upiId: scannedUpiId,
+  onPaymentAttempt,
+}) => {
+  const [upiId, setUpiId] = useState(scannedUpiId || "");
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Update UPI ID when scanned value is received
@@ -23,33 +37,21 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ upiId: scannedUpiId }) => {
   }, [scannedUpiId]);
 
   const handlePayment = async () => {
-    // Validate inputs
-    if (!upiId || !amount || !note) {
+    if (!upiId) {
       Toast.show({
-        type: 'error',
-        text1: 'Missing Information',
-        text2: 'Please fill all the fields',
+        type: "error",
+        text1: "Invalid UPI ID",
+        text2: "Please enter a valid UPI ID",
       });
       return;
     }
 
-    // Validate UPI ID format
-    if (!upiId.includes('@')) {
-      Toast.show({
-        type: 'error',
-        text1: 'Invalid UPI ID',
-        text2: 'UPI ID should be in format username@upi',
-      });
-      return;
-    }
-
-    // Parse amount to number
     const amountValue = parseFloat(amount);
     if (isNaN(amountValue) || amountValue <= 0) {
       Toast.show({
-        type: 'error',
-        text1: 'Invalid Amount',
-        text2: 'Please enter a valid amount',
+        type: "error",
+        text1: "Invalid Amount",
+        text2: "Please enter a valid amount",
       });
       return;
     }
@@ -57,45 +59,31 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ upiId: scannedUpiId }) => {
     setIsLoading(true);
 
     try {
-      // Check vendor blocklist
-      if (checkVendorBlocklist(upiId)) {
-        Toast.show({
-          type: 'error',
-          text1: 'Payment Blocked',
-          text2: `Payments to ${upiId} are not allowed`,
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Check spending limit
-      const isWithinLimit = await checkSpendingLimit(amountValue);
-      if (!isWithinLimit) {
-        Toast.show({
-          type: 'error',
-          text1: 'Spending Limit Exceeded',
-          text2: 'You have exceeded your daily spending limit',
-        });
-        setIsLoading(false);
-        return;
+      // Check if payment should be blocked
+      if (onPaymentAttempt) {
+        const canProceed = await onPaymentAttempt(upiId, amountValue);
+        if (!canProceed) {
+          setIsLoading(false);
+          return;
+        }
       }
 
       // Launch UPI payment
       const success = await launchUpiPayment(upiId, amountValue, note);
       if (success) {
         Toast.show({
-          type: 'success',
-          text1: 'Payment Initiated',
-          text2: 'UPI payment app launched successfully',
+          type: "success",
+          text1: "Payment Initiated",
+          text2: "UPI payment app launched successfully",
         });
       }
     } catch (error) {
       Toast.show({
-        type: 'error',
-        text1: 'Payment Failed',
-        text2: 'Could not launch UPI payment',
+        type: "error",
+        text1: "Payment Failed",
+        text2: "Could not launch UPI payment",
       });
-      console.error('Payment error:', error);
+      console.error("Payment error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -134,13 +122,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ upiId: scannedUpiId }) => {
           onChangeText={setNote}
         />
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handlePayment}
           disabled={isLoading}
         >
           <Text style={styles.buttonText}>
-            {isLoading ? 'Processing...' : 'Make Payment'}
+            {isLoading ? "Processing..." : "Make Payment"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -155,20 +143,20 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2E7D32',
+    fontWeight: "bold",
+    color: "#2E7D32",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#555',
+    color: "#555",
     marginBottom: 30,
   },
   formContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 10,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -176,32 +164,32 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
-    color: '#333',
+    color: "#333",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: "#2E7D32",
     borderRadius: 8,
     padding: 15,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 10,
   },
   buttonDisabled: {
-    backgroundColor: '#A5D6A7',
+    backgroundColor: "#A5D6A7",
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });
 

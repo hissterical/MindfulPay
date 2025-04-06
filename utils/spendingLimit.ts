@@ -189,3 +189,23 @@ export const getSpendingSummary = () => {
     })),
   };
 };
+
+export const updateDailySpending = async (amount: number) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const newTransaction: Transaction = {
+      amount,
+      date: today,
+      category: 'other',
+      description: 'UPI Payment',
+    };
+    
+    // Add to example transactions
+    EXAMPLE_TRANSACTIONS.push(newTransaction);
+    
+    // In a real app, you would save this to AsyncStorage
+    // await AsyncStorage.setItem('daily_transactions', JSON.stringify(EXAMPLE_TRANSACTIONS));
+  } catch (error) {
+    console.error('Error updating daily spending:', error);
+  }
+};
