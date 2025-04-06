@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput,
   ScrollView,
+  Keyboard,
 } from "react-native";
 import PaymentForm from "../components/PaymentForm";
 import QRScanner from "../components/QRScanner";
@@ -33,10 +34,31 @@ const PaymentScreen: React.FC = () => {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
   const [showCategorySelector, setShowCategorySelector] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
     // Initialize blocklist when component mounts
     checkVendorBlocklist("test@upi"); // This will trigger initialization
+    
+    // Add keyboard listeners
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    // Clean up listeners
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
   }, []);
 
   const handleBlockedPayment = (
@@ -223,37 +245,35 @@ const PaymentScreen: React.FC = () => {
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Select Category</Text>
-          <ScrollView style={styles.categoryScrollView}>
-            <View style={styles.categoryGrid}>
-              {EXPENSE_CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
+          <View style={styles.categoryGrid}>
+            {EXPENSE_CATEGORIES.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  styles.categoryOption,
+                  category === cat && styles.activeCategoryOption,
+                ]}
+                onPress={() => {
+                  setCategory(cat);
+                  setShowCategorySelector(false);
+                }}
+              >
+                <Ionicons
+                  name={CATEGORY_ICONS[cat] as any}
+                  size={20}
+                  color={category === cat ? "#fff" : "#2E7D32"}
+                />
+                <Text
                   style={[
-                    styles.categoryButton,
-                    category === cat && styles.activeCategoryButton,
+                    styles.categoryOptionText,
+                    category === cat && styles.activeCategoryText,
                   ]}
-                  onPress={() => {
-                    setCategory(cat);
-                    setShowCategorySelector(false);
-                  }}
                 >
-                  <Ionicons
-                    name={CATEGORY_ICONS[cat] as any}
-                    size={24}
-                    color={category === cat ? "#fff" : "#2E7D32"}
-                  />
-                  <Text
-                    style={[
-                      styles.categoryButtonText,
-                      category === cat && styles.activeCategoryText,
-                    ]}
-                  >
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <TouchableOpacity
             style={[styles.modalButton, styles.cancelButton]}
             onPress={() => setShowCategorySelector(false)}
@@ -283,26 +303,31 @@ const PaymentScreen: React.FC = () => {
         upiId={scannedUpiId}
         onPaymentAttempt={handlePaymentAttempt}
       />
-      <TouchableOpacity
-        style={styles.scanButton}
-        onPress={() => setShowScanner(true)}
-      >
-        <Ionicons name="qr-code-outline" size={24} color="white" />
-        <Text style={styles.scanButtonText}>Scan QR Code</Text>
-      </TouchableOpacity>
+      
+      {/* Only show floating buttons when keyboard is not visible */}
+      {!keyboardVisible && (
+        <>
+          <TouchableOpacity
+            style={styles.scanButton}
+            onPress={() => setShowScanner(true)}
+          >
+            <Ionicons name="qr-code-outline" size={24} color="white" />
+            <Text style={styles.scanButtonText}>Scan QR Code</Text>
+          </TouchableOpacity>
 
-      {/* Category Selection Button */}
-      <TouchableOpacity
-        style={styles.categoryButton}
-        onPress={() => setShowCategorySelector(true)}
-      >
-        <Ionicons
-          name={CATEGORY_ICONS[category] as any}
-          size={24}
-          color="#2E7D32"
-        />
-        <Text style={styles.categoryButtonText}>{category}</Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.categoryButton}
+            onPress={() => setShowCategorySelector(true)}
+          >
+            <Ionicons
+              name={CATEGORY_ICONS[category] as any}
+              size={24}
+              color="#2E7D32"
+            />
+            <Text style={styles.categoryButtonText}>{category}</Text>
+          </TouchableOpacity>
+        </>
+      )}
 
       <BlockedPaymentModal />
       <CategorySelectorModal />
@@ -406,16 +431,35 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   categoryGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    padding: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 20,
   },
-  activeCategoryButton: {
-    backgroundColor: "#2E7D32",
+  categoryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    width: '48%',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  activeCategoryOption: {
+    backgroundColor: '#2E7D32',
+    borderColor: '#2E7D32',
+  },
+  categoryOptionText: {
+    color: '#333',
+    marginLeft: 8,
+    fontSize: 14,
   },
   activeCategoryText: {
-    color: "white",
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 

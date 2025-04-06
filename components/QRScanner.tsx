@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,7 +8,7 @@ import {
   Platform,
   Modal,
 } from "react-native";
-import { BarCodeScanner } from "expo-barcode-scanner";
+import { Camera, CameraType, BarCodeScanningResult } from "expo-camera";
 import { launchUpiPayment } from "../utils/upiLauncher";
 import Toast from "react-native-toast-message";
 import { checkVendorBlocklist } from "../utils/vendorCheck";
@@ -80,6 +80,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
     "blacklist"
   );
   const [currentUpiData, setCurrentUpiData] = useState<any>(null);
+  const cameraRef = useRef<Camera>(null);
 
   useEffect(() => {
     checkCameraPermission();
@@ -87,7 +88,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
 
   const checkCameraPermission = async () => {
     try {
-      const { status } = await BarCodeScanner.requestPermissionsAsync();
+      const { status } = await Camera.requestCameraPermissionsAsync();
       setHasPermission(status === 'granted');
     } catch (error) {
       console.error("Camera permission error:", error);
@@ -180,8 +181,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
     }
   };
 
-  const handleBarCodeScanned = async (scanResult: { type: string; data: string }) => {
-    const { type, data } = scanResult;
+  const handleBarCodeScanned = async ({ type, data }: BarCodeScanningResult) => {
+    if (scanned) return;
     setScanned(true);
 
     // Check if it's a UPI QR code
@@ -191,6 +192,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
         text1: "Invalid QR Code",
         text2: "This is not a valid UPI QR code",
       });
+      setTimeout(() => setScanned(false), 2000);
       return;
     }
 
@@ -202,6 +204,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
         text1: "Invalid QR Code",
         text2: "Could not parse UPI QR code data",
       });
+      setTimeout(() => setScanned(false), 2000);
       return;
     }
 
@@ -318,10 +321,14 @@ const QRScanner: React.FC<QRScannerProps> = ({ onClose, onScanSuccess }) => {
 
   return (
     <View style={styles.container}>
-      <BarCodeScanner
+      <Camera
+        ref={cameraRef}
         style={StyleSheet.absoluteFillObject}
+        type={CameraType.back}
         onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
-        barCodeTypes={[BarCodeScanner.Constants.BarCodeType.qr]}
+        barCodeScannerSettings={{
+          barCodeTypes: ['qr'],
+        }}
       />
 
       {scanned && !isLoading && (

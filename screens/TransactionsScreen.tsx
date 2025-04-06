@@ -3,9 +3,9 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, SectionL
 import { Ionicons } from '@expo/vector-icons';
 import { useFinancial } from '../context/FinancialContext';
 import { Transaction } from '../context/FinancialContext';
+const { transactions, refreshData } = useFinancial();
 
 const TransactionsScreen: React.FC = () => {
-  const { transactions } = useFinancial();
   
   // State for filtering and sorting
   const [searchQuery, setSearchQuery] = useState('');
@@ -376,3 +376,6 @@ const styles = StyleSheet.create({
 });
 
 export default TransactionsScreen;
+useEffect(() => {
+  refreshData();
+}, []);
