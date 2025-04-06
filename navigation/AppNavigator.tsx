@@ -10,13 +10,17 @@ import PaymentScreen from '../screens/PaymentScreen';
 import GoalsLimitsScreen from '../screens/GoalsLimitsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
+// Import auth context
+import { AuthProvider } from '../context/AuthContext';
+
 const Tab = createBottomTabNavigator();
 
 const AppNavigator: React.FC = () => {
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={({ route }: { route: { name: string } }) => ({
+    <AuthProvider>
+      <NavigationContainer>
+        <Tab.Navigator
+          screenOptions={({ route }: { route: { name: string } }) => ({
           tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
             let iconName: keyof typeof Ionicons.glyphMap;
 
@@ -52,8 +56,9 @@ const AppNavigator: React.FC = () => {
         />
         <Tab.Screen name="Goals" component={GoalsLimitsScreen} />
         <Tab.Screen name="Profile" component={ProfileScreen} />
-      </Tab.Navigator>
-    </NavigationContainer>
+        </Tab.Navigator>
+      </NavigationContainer>
+    </AuthProvider>
   );
 };
 
